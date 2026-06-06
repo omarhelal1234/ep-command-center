@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Everything Psych — Command Center</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141925; --panel2:#1b2230; --line:#27303f;
+    --txt:#e6ebf2; --mut:#8b97a8; --accent:#7c5cff; --accent2:#22d3ee;
+    --good:#2ecc71; --warn:#f5a623; --bad:#ff5c6c; --chip:#222b3a;
+    --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#16203a 0%,var(--bg) 55%);color:var(--txt);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh}
+  a{color:var(--accent2);text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
+  header.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:grid;place-items:center;font-weight:800;font-size:20px;color:#0b0e14}
+  h1{font-size:22px;margin:0;letter-spacing:.2px}
+  .sub{color:var(--mut);font-size:13px}
+  .spacer{flex:1}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--txt);
+    padding:9px 14px;border-radius:10px;font-size:14px;transition:.15s}
+  button:hover{border-color:var(--accent);transform:translateY(-1px)}
+  button.primary{background:linear-gradient(135deg,var(--accent),#5b3fff);border:none;color:#fff;font-weight:600}
+  button.ghost{background:transparent}
+  button.sm{padding:5px 9px;font-size:12px;border-radius:8px}
+  input,select,textarea{background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:9px 11px;border-radius:10px;font-size:14px;width:100%;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .grid{display:grid;gap:16px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 14px}
+  .stat .n{font-size:30px;font-weight:800;line-height:1}
+  .stat .l{color:var(--mut);font-size:12px;margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
+  .stat .d{font-size:12px;margin-top:8px}
+  .next .when{font-size:34px;font-weight:800;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line);background:var(--chip)}
+  .pill.good{color:var(--good);border-color:#1e5b3a;background:#0f2a1c}
+  .pill.warn{color:var(--warn);border-color:#5b441e;background:#2a210f}
+  .pill.bad{color:var(--bad);border-color:#5b1e26;background:#2a0f13}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none}
+  th:hover{color:var(--txt)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .thumb{width:88px;height:50px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:var(--panel2)}
+  .vtitle{font-weight:600;max-width:340px}
+  .vtitle small{display:block;color:var(--mut);font-weight:400;font-size:12px}
+  .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;overflow-x:auto}
+  .col{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:90px}
+  .col h3{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;font-size:13px}
+  .card .ang{color:var(--mut);font-size:11px;margin-top:4px}
+  .card .row{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}
+  .card select{padding:4px 6px;font-size:11px;border-radius:7px}
+  .formrow{display:grid;grid-template-columns:1.4fr 1.6fr 130px auto;gap:10px;align-items:end}
+  .formrow label{font-size:11px;color:var(--mut);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+  .bars{display:flex;gap:6px;align-items:flex-end;height:90px;margin-top:6px}
+  .bar{flex:1;border-radius:6px 6px 0 0;position:relative;display:flex;align-items:flex-end;justify-content:center;min-height:4px}
+  .bar span{position:absolute;bottom:-20px;font-size:10px;color:var(--mut)}
+  .bar b{position:absolute;top:-18px;font-size:11px;font-weight:700}
+  .two{grid-template-columns:1fr 1fr}
+  .perf li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .perf li:last-child{border:0}
+  .perf .v{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+  ul{list-style:none;margin:0;padding:0}
+  .check{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:14px}
+  .check input{width:18px;height:18px;accent-color:var(--accent)}
+  .muted{color:var(--mut)}
+  .banner{background:#2a210f;border:1px solid #5b441e;color:#ffd479;padding:12px 14px;border-radius:12px;margin-bottom:16px;font-size:14px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;z-index:50;padding:20px}
+  .modal.show{display:grid}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;max-width:520px;width:100%;box-shadow:var(--shadow)}
+  .modal h2{margin-top:0}
+  .field{margin-bottom:14px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel2);
+    border:1px solid var(--accent);padding:11px 18px;border-radius:12px;transition:.3s;z-index:60;box-shadow:var(--shadow)}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .loading{color:var(--mut);font-size:14px;padding:8px 0}
+  @media(max-width:780px){.kanban{grid-template-columns:repeat(2,1fr)}.formrow{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">EP</div>
+    <div>
+      <h1>Everything Psych — Command Center</h1>
+      <div class="sub" id="channelSub">Loading channel…</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="ghost" id="refreshBtn">↻ Refresh</button>
+    <button class="ghost" id="settingsBtn">⚙ Settings</button>
+  </header>
+
+  <div id="keyBanner" class="banner" style="display:none">
+    No YouTube API key set — live stats are off. Click <b>⚙ Settings</b> to add a read-only YouTube Data API key. (The topic queue & pipeline below work without it.)
+  </div>
+
+  <!-- TOP STAT CARDS -->
+  <div class="grid cards" style="margin-bottom:16px">
+    <div class="panel stat"><div class="n" id="stSubs">—</div><div class="l">Subscribers</div></div>
+    <div class="panel stat"><div class="n" id="stViews">—</div><div class="l">Total views</div></div>
+    <div class="panel stat"><div class="n" id="stVideos">—</div><div class="l">Videos published</div></div>
+    <div class="panel stat next">
+      <div class="l" style="margin:0 0 6px">Next video due</div>
+      <div class="when" id="nextWhen">—</div>
+      <div class="d" id="nextDetail"><span class="muted">target cadence: daily</span></div>
+    </div>
+  </div>
+
+  <!-- PLAN NEXT VIDEO -->
+  <div class="panel" style="margin-bottom:16px">
+    <h2>Plan the next video</h2>
+    <div class="formrow">
+      <div><label>Topic</label><input id="qTopic" placeholder="e.g. The Dunning-Kruger effect is mostly a statistical artifact" /></div>
+      <div><label>Angle / differentiation</label><input id="qAngle" placeholder="What's the contrarian / debunk hook?" /></div>
+      <div><label>Target date</label><input id="qDate" type="date" /></div>
+      <div><button class="primary" id="qAdd">Add to queue</button></div>
+    </div>
+    <div style="margin-top:10px"><button class="sm ghost" id="planTomorrow">📅 Plan tomorrow's video</button>
+      <span class="muted" style="font-size:12px;margin-left:8px">Adds a slot dated tomorrow you can fill in — the automation pipeline reads this queue from Supabase.</span></div>
+  </div>
+
+  <!-- PIPELINE KANBAN -->
+  <div class="panel" style="margin-bottom:16px">
+    <h2>Production pipeline</h2>
+    <div class="kanban" id="kanban"><div class="loading">Loading queue…</div></div>
+  </div>
+
+  <!-- CADENCE + PERFORMERS -->
+  <div class="grid two" style="margin-bottom:16px">
+    <div class="panel">
+      <h2>Cadence tracker — last 8 weeks <span id="cadenceFlag"></span></h2>
+      <div class="bars" id="cadenceBars"><div class="loading">Needs YouTube key…</div></div>
+      <div class="muted" style="font-size:12px;margin-top:26px">Green ≥7 uploads/week (daily, on target). Amber = 4–6. Red ≤3. Note: daily AI-generated output is the highest-risk zone for YouTube's inauthentic-content policy — sustain originality per video, not just volume.</div>
+    </div>
+    <div class="panel">
+      <h2>Performance insights</h2>
+      <div class="grid two" style="gap:18px">
+        <div><div class="muted" style="font-size:12px;margin-bottom:6px">🔥 Top performers</div><ul class="perf" id="topPerf"><li class="muted">—</li></ul></div>
+        <div><div class="muted" style="font-size:12px;margin-bottom:6px">🧊 Needs a rework</div><ul class="perf" id="botPerf"><li class="muted">—</li></ul></div>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:12px" id="engNote"></div>
+    </div>
+  </div>
+
+  <!-- VIDEO TABLE -->
+  <div class="panel" style="margin-bottom:16px">
+    <h2>Uploaded videos</h2>
+    <div id="videoTableWrap"><div class="loading">Needs YouTube key to load uploads…</div></div>
+  </div>
+
+  <!-- PUBLISH CHECKLIST -->
+  <div class="panel">
+    <h2>Publish-prep checklist</h2>
+    <select id="checklistVideo" style="max-width:420px;margin-bottom:12px"><option>Load videos first…</option></select>
+    <ul id="checklist">
+      <li class="check"><input type="checkbox" data-k="ai_disclosed" id="ck1"><label for="ck1">Synthetic-media / AI disclosure set (YouTube altered-content toggle)</label></li>
+      <li class="check"><input type="checkbox" data-k="contentid_checked" id="ck2"><label for="ck2">Copyright / Content-ID risk checked on clips & music</label></li>
+      <li class="check"><input type="checkbox" data-k="chapters_added" id="ck3"><label for="ck3">Chapters / timestamps added to description</label></li>
+      <li class="check"><input type="checkbox" data-k="endscreen_added" id="ck4"><label for="ck4">End screen + cards added</label></li>
+    </ul>
+    <div class="muted" style="font-size:12px">Saved per-video to Supabase — survives across devices.</div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal" id="settingsModal">
+  <div class="box">
+    <h2>Settings</h2>
+    <div class="field">
+      <label class="muted" style="font-size:12px">YouTube Data API v3 key (read-only)</label>
+      <input id="ytKeyInput" placeholder="AIza…" />
+      <div class="muted" style="font-size:12px;margin-top:6px">Stored only in this browser (localStorage) — never committed to the repo. Restrict it to the YouTube Data API and your Pages domain in Google Cloud.</div>
+    </div>
+    <div class="field">
+      <label class="muted" style="font-size:12px">Channel ID</label>
+      <input id="chanInput" />
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="ghost" id="closeSettings">Cancel</button>
+      <button class="primary" id="saveSettings">Save & reload</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+/* ---------- CONFIG ---------- */
+const SUPABASE_URL  = "https://saovircuzswtespcghij.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_0HBiQWgkpESLdzKLEiBgtw_ygC4glX1"; // publishable key — safe for public client
+const DEFAULT_CHANNEL = "UCu7IGLUMHFBMCAXPxIgoROQ";
+const TARGET_PER_WEEK = 7;
+const STAGES = ["idea","scripted","assets","scheduled","published"];
+const STAGE_LABEL = {idea:"Idea",scripted:"Scripted",assets:"Assets",scheduled:"Scheduled",published:"Published"};
+
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const ytKey  = () => localStorage.getItem("ep_yt_key") || "";
+const chanId = () => localStorage.getItem("ep_channel") || DEFAULT_CHANNEL;
+let VIDEOS = []; // cached video objects
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const fmt = n => { n=Number(n); if(!isFinite(n))return "—";
+  if(n>=1e6)return (n/1e6).toFixed(n>=1e7?0:1)+"M";
+  if(n>=1e3)return (n/1e3).toFixed(n>=1e4?0:1)+"K"; return String(n);};
+const esc = s => (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
+function isoDur(d){const m=/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(d||"");if(!m)return "";
+  const h=+(m[1]||0),mi=+(m[2]||0),s=+(m[3]||0);const mm=h*60+mi;
+  return (h?h+":"+String(mi).padStart(2,"0"):mm)+":"+String(s).padStart(2,"0");}
+function daysAgo(d){return Math.floor((Date.now()-new Date(d))/864e5);}
+function isoWeek(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-((d.getDay()+6)%7));
+  const w1=new Date(d.getFullYear(),0,4);return d.getFullYear()+"-"+String(1+Math.round(((d-w1)/864e5-3+((w1.getDay()+6)%7))/7)).padStart(2,"0");}
+
+/* ---------- YOUTUBE ---------- */
+async function yt(path,params){
+  const u=new URL("https://www.googleapis.com/youtube/v3/"+path);
+  Object.entries({...params,key:ytKey()}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u); if(!r.ok){throw new Error((await r.json()).error?.message||r.status);} return r.json();
+}
+async function loadYouTube(){
+  if(!ytKey()){$("#keyBanner").style.display="block";return;}
+  $("#keyBanner").style.display="none";
+  try{
+    const ch=await yt("channels",{part:"snippet,contentDetails,statistics",id:chanId()});
+    const c=ch.items?.[0]; if(!c) throw new Error("Channel not found");
+    const st=c.statistics;
+    $("#stSubs").textContent=fmt(st.subscriberCount);
+    $("#stViews").textContent=fmt(st.viewCount);
+    $("#stVideos").textContent=fmt(st.videoCount);
+    $("#channelSub").innerHTML=esc(c.snippet.title)+" · <a target=_blank href='https://youtube.com/channel/"+chanId()+"'>open on YouTube ↗</a>";
+    const uploads=c.contentDetails.relatedPlaylists.uploads;
+    const pl=await yt("playlistItems",{part:"contentDetails",playlistId:uploads,maxResults:50});
+    const ids=pl.items.map(i=>i.contentDetails.videoId).join(",");
+    if(!ids){renderVideos([]);return;}
+    const vd=await yt("videos",{part:"snippet,statistics,contentDetails",id:ids});
+    VIDEOS=vd.items.map(v=>({id:v.id,title:v.snippet.title,
+      published:v.snippet.publishedAt,thumb:v.snippet.thumbnails?.medium?.url,
+      views:+(v.statistics.viewCount||0),likes:+(v.statistics.likeCount||0),
+      comments:+(v.statistics.commentCount||0),dur:isoDur(v.contentDetails.duration)}))
+      .sort((a,b)=>new Date(b.published)-new Date(a.published));
+    renderVideos(VIDEOS); renderNext(VIDEOS); renderCadence(VIDEOS); renderPerformers(VIDEOS); fillChecklistDropdown(VIDEOS);
+  }catch(e){toast("YouTube error: "+e.message);$("#keyBanner").style.display="block";
+    $("#keyBanner").innerHTML="YouTube API error: <b>"+esc(e.message)+"</b> — check the key in ⚙ Settings.";}
+}
+
+/* ---------- NEXT VIDEO ESTIMATE ---------- */
+function renderNext(vs){
+  if(!vs.length){return;}
+  const dates=vs.map(v=>new Date(v.published)).sort((a,b)=>b-a);
+  let gap=7/TARGET_PER_WEEK; // default 1d (daily)
+  if(dates.length>=2){const gaps=[];for(let i=0;i<Math.min(dates.length-1,8);i++)gaps.push((dates[i]-dates[i+1])/864e5);
+    gaps.sort((a,b)=>a-b);gap=gaps[Math.floor(gaps.length/2)]||gap;}
+  const next=new Date(dates[0].getTime()+gap*864e5);
+  const dleft=Math.ceil((next-Date.now())/864e5);
+  const when=$("#nextWhen");
+  when.textContent = dleft<0?Math.abs(dleft)+"d overdue" : dleft===0?"today" : dleft===1?"tomorrow" : "in "+dleft+"d";
+  when.style.webkitTextFillColor = dleft<0?"#ff5c6c":"";
+  $("#nextDetail").innerHTML="target "+next.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+
+    " · <span class=muted>typical gap "+gap.toFixed(1)+"d · cadence goal daily</span>";
+}
+
+/* ---------- CADENCE ---------- */
+function renderCadence(vs){
+  const weeks=[];const now=new Date();
+  for(let i=7;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i*7);weeks.push(isoWeek(d));}
+  const counts={};vs.forEach(v=>{const w=isoWeek(v.published);counts[w]=(counts[w]||0)+1;});
+  const data=weeks.map(w=>counts[w]||0);
+  const max=Math.max(TARGET_PER_WEEK,...data);
+  const el=$("#cadenceBars");el.innerHTML="";
+  data.forEach((c,i)=>{const b=document.createElement("div");b.className="bar";
+    b.style.height=Math.max(4,(c/max)*100)+"%";
+    b.style.background=c>=TARGET_PER_WEEK?"linear-gradient(180deg,#2ecc71,#1e8f50)":c>=4?"linear-gradient(180deg,#f5a623,#b87d18)":"#3a2530";
+    b.innerHTML="<b>"+c+"</b><span>w"+weeks[i].split("-")[1]+"</span>";el.appendChild(b);});
+  const recent=data.slice(-4);const onTarget=recent.filter(c=>c>=TARGET_PER_WEEK).length;
+  const flag=$("#cadenceFlag");
+  if(onTarget>=3)flag.innerHTML="<span class='pill good'>on pace</span>";
+  else if(recent.reduce((a,b)=>a+b,0)===0)flag.innerHTML="<span class='pill bad'>stalled</span>";
+  else flag.innerHTML="<span class='pill warn'>below daily</span>";
+}
+
+/* ---------- PERFORMERS ---------- */
+function renderPerformers(vs){
+  if(vs.length<2){return;}
+  const byViews=[...vs].sort((a,b)=>b.views-a.views);
+  const top=byViews.slice(0,3),bot=byViews.slice(-3).reverse();
+  const row=v=>`<li><span class="vtitle" style="font-weight:500;font-size:13px">${esc(v.title).slice(0,46)}</span><span class="v">${fmt(v.views)} views</span></li>`;
+  $("#topPerf").innerHTML=top.map(row).join("");
+  $("#botPerf").innerHTML=bot.map(row).join("");
+  const eng=vs.map(v=>v.views?((v.likes+v.comments)/v.views*100):0);
+  const avg=eng.reduce((a,b)=>a+b,0)/eng.length;
+  const best=[...vs].sort((a,b)=>((b.likes+b.comments)/(b.views||1))-((a.likes+a.comments)/(a.views||1)))[0];
+  $("#engNote").innerHTML=`Avg engagement ${avg.toFixed(1)}% · highest-engagement video: <b>${esc(best.title).slice(0,40)}</b> — study its hook & topic for what to make more of.`;
+}
+
+/* ---------- VIDEO TABLE ---------- */
+let sortKey="published",sortDir=-1;
+function renderVideos(vs){
+  const wrap=$("#videoTableWrap");
+  if(!vs.length){wrap.innerHTML="<div class='muted'>No uploads found yet.</div>";return;}
+  const sorted=[...vs].sort((a,b)=>{let x=a[sortKey],y=b[sortKey];
+    if(sortKey==="published"){x=new Date(x);y=new Date(y);} if(sortKey==="title"){return sortDir*String(x).localeCompare(String(y));}
+    return sortDir*(x-y);});
+  const h=(k,l,n)=>`<th class="${n?'num':''}" data-k="${k}">${l}${sortKey===k?(sortDir<0?" ↓":" ↑"):""}</th>`;
+  wrap.innerHTML=`<table><thead><tr><th></th>${h("title","Title")}${h("published","Published")}${h("views","Views",1)}${h("likes","Likes",1)}${h("comments","Comments",1)}<th class=num>Eng%</th></tr></thead><tbody>${
+    sorted.map(v=>{const eng=v.views?((v.likes+v.comments)/v.views*100).toFixed(1):"0.0";
+    return `<tr><td><a target=_blank href="https://youtu.be/${v.id}"><img class=thumb src="${v.thumb||''}"></a></td>
+      <td class=vtitle><a target=_blank href="https://youtu.be/${v.id}" style="color:var(--txt)">${esc(v.title)}</a><small>${v.dur}</small></td>
+      <td>${daysAgo(v.published)}d ago</td><td class=num>${fmt(v.views)}</td><td class=num>${fmt(v.likes)}</td><td class=num>${fmt(v.comments)}</td>
+      <td class=num>${eng}%</td></tr>`;}).join("")}</tbody></table>`;
+  wrap.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{const k=th.dataset.k;
+    if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}renderVideos(VIDEOS);});
+}
+
+/* ---------- QUEUE / KANBAN ---------- */
+async function loadQueue(){
+  const {data,error}=await sb.from("ep_video_queue").select("*").order("position").order("created_at");
+  const k=$("#kanban");
+  if(error){k.innerHTML="<div class='muted'>Supabase error: "+esc(error.message)+"</div>";return;}
+  k.innerHTML="";
+  STAGES.forEach(stage=>{
+    const items=data.filter(d=>d.status===stage);
+    const col=document.createElement("div");col.className="col";
+    col.innerHTML=`<h3>${STAGE_LABEL[stage]}<span>${items.length}</span></h3>`;
+    items.forEach(it=>{
+      const card=document.createElement("div");card.className="card";
+      const opts=STAGES.map(s=>`<option value="${s}" ${s===it.status?"selected":""}>${STAGE_LABEL[s]}</option>`).join("");
+      card.innerHTML=`<div>${esc(it.topic)}</div>${it.angle?`<div class=ang>${esc(it.angle)}</div>`:""}
+        ${it.target_date?`<div class=ang>🎯 ${it.target_date}</div>`:""}
+        <div class=row><select data-id="${it.id}">${opts}</select><button class="sm ghost" data-del="${it.id}">✕</button></div>`;
+      card.querySelector("select").onchange=async e=>{
+        await sb.from("ep_video_queue").update({status:e.target.value,updated_at:new Date().toISOString()}).eq("id",it.id);
+        toast("Moved to "+STAGE_LABEL[e.target.value]);loadQueue();};
+      card.querySelector("[data-del]").onclick=async()=>{
+        if(!confirm("Delete this idea?"))return;
+        await sb.from("ep_video_queue").delete().eq("id",it.id);loadQueue();};
+      col.appendChild(card);
+    });
+    k.appendChild(col);
+  });
+}
+async function addTopic(topic,angle,date,status="idea"){
+  if(!topic){toast("Enter a topic first");return;}
+  const {error}=await sb.from("ep_video_queue").insert({topic,angle:angle||null,target_date:date||null,status});
+  if(error){toast("Save failed: "+error.message);return;}
+  $("#qTopic").value="";$("#qAngle").value="";$("#qDate").value="";
+  toast("Added to queue ✓");loadQueue();
+}
+
+/* ---------- CHECKLIST ---------- */
+function fillChecklistDropdown(vs){
+  const sel=$("#checklistVideo");
+  sel.innerHTML=vs.map(v=>`<option value="${v.id}">${esc(v.title).slice(0,60)}</option>`).join("")||"<option>No videos</option>";
+  if(vs.length)loadChecklist(vs[0].id,vs[0].title);
+  sel.onchange=()=>{const v=vs.find(x=>x.id===sel.value);loadChecklist(sel.value,v?.title);};
+}
+async function loadChecklist(vid,title){
+  const {data}=await sb.from("ep_video_meta").select("*").eq("video_id",vid).maybeSingle();
+  document.querySelectorAll("#checklist input").forEach(cb=>{cb.checked=!!(data&&data[cb.dataset.k]);
+    cb.onchange=async()=>{const payload={video_id:vid,title:title||null,updated_at:new Date().toISOString()};
+      document.querySelectorAll("#checklist input").forEach(c=>payload[c.dataset.k]=c.checked);
+      const {error}=await sb.from("ep_video_meta").upsert(payload);
+      toast(error?"Save failed":"Checklist saved ✓");};});
+}
+
+/* ---------- SETTINGS / EVENTS ---------- */
+$("#settingsBtn").onclick=()=>{$("#ytKeyInput").value=ytKey();$("#chanInput").value=chanId();$("#settingsModal").classList.add("show");};
+$("#closeSettings").onclick=()=>$("#settingsModal").classList.remove("show");
+$("#saveSettings").onclick=()=>{localStorage.setItem("ep_yt_key",$("#ytKeyInput").value.trim());
+  localStorage.setItem("ep_channel",$("#chanInput").value.trim()||DEFAULT_CHANNEL);location.reload();};
+$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();};
+$("#qAdd").onclick=()=>addTopic($("#qTopic").value.trim(),$("#qAngle").value.trim(),$("#qDate").value);
+$("#planTomorrow").onclick=()=>{const d=new Date();d.setDate(d.getDate()+1);
+  addTopic("[ planned — fill in topic ]","",d.toISOString().slice(0,10));};
+
+/* ---------- INIT ---------- */
+loadQueue();
+loadYouTube();
+</script>
+</body>
+</html>
