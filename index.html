@@ -150,6 +150,19 @@
     </div>
   </div>
 
+  <!-- TIKTOK TRACKING -->
+  <div class="panel" id="tiktokPanel" style="margin-bottom:16px">
+    <h2>TikTok <span class="muted" id="ttName" style="font-size:13px;font-weight:400"></span></h2>
+    <div class="grid cards" style="margin-bottom:14px">
+      <div class="panel stat"><div class="n" id="ttFollowers">—</div><div class="l">Followers</div></div>
+      <div class="panel stat"><div class="n" id="ttLikes">—</div><div class="l">Total likes</div></div>
+      <div class="panel stat"><div class="n" id="ttVideos">—</div><div class="l">Videos</div></div>
+      <div class="panel stat"><div class="n" id="ttViews">—</div><div class="l">Total views</div></div>
+    </div>
+    <div id="ttVideoWrap"><div class="loading">Loading TikTok stats…</div></div>
+    <div class="muted" id="ttUpdated" style="font-size:12px;margin-top:10px"></div>
+  </div>
+
   <!-- VIDEO TABLE -->
   <div class="panel" style="margin-bottom:16px">
     <h2>Uploaded videos</h2>
@@ -381,14 +394,36 @@ $("#settingsBtn").onclick=()=>{$("#ytKeyInput").value=ytKey();$("#chanInput").va
 $("#closeSettings").onclick=()=>$("#settingsModal").classList.remove("show");
 $("#saveSettings").onclick=()=>{localStorage.setItem("ep_yt_key",$("#ytKeyInput").value.trim());
   localStorage.setItem("ep_channel",$("#chanInput").value.trim()||DEFAULT_CHANNEL);location.reload();};
-$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();};
+$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();loadTikTok();};
 $("#qAdd").onclick=()=>addTopic($("#qTopic").value.trim(),$("#qAngle").value.trim(),$("#qDate").value);
 $("#planTomorrow").onclick=()=>{const d=new Date();d.setDate(d.getDate()+1);
   addTopic("[ planned — fill in topic ]","",d.toISOString().slice(0,10));};
 
+/* ---------- TIKTOK ---------- */
+async function loadTikTok(){
+  try{
+    const {data:s}=await sb.from("ep_tiktok_stats").select("*").limit(1).maybeSingle();
+    if(!s){$("#ttVideoWrap").innerHTML='<div class="muted">No TikTok data yet — run <code>python3 tiktok_stats.py</code> to populate.</div>';return;}
+    $("#ttName").textContent=s.display_name?("· "+s.display_name):"";
+    $("#ttFollowers").textContent=fmt(s.follower_count);
+    $("#ttLikes").textContent=fmt(s.likes_count);
+    $("#ttVideos").textContent=fmt(s.video_count);
+    $("#ttViews").textContent=fmt(s.total_views);
+    if(s.updated_at)$("#ttUpdated").textContent="Last synced "+new Date(s.updated_at).toLocaleString();
+    const {data:vs}=await sb.from("ep_tiktok_videos").select("*").order("view_count",{ascending:false});
+    if(vs&&vs.length){
+      const rows=vs.map(v=>`<tr><td class=vtitle>${esc(v.title)||"(untitled)"}</td>`+
+        `<td class=num>${fmt(v.view_count)}</td><td class=num>${fmt(v.like_count)}</td>`+
+        `<td class=num>${fmt(v.comment_count)}</td><td class=num>${fmt(v.share_count)}</td></tr>`).join("");
+      $("#ttVideoWrap").innerHTML=`<table><thead><tr><th>Video</th><th class=num>Views</th><th class=num>Likes</th><th class=num>Comments</th><th class=num>Shares</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }else{$("#ttVideoWrap").innerHTML='<div class="muted">No videos synced yet.</div>';}
+  }catch(e){$("#ttVideoWrap").innerHTML='<div class="muted">TikTok load error: '+esc(e.message)+'</div>';}
+}
+
 /* ---------- INIT ---------- */
 loadQueue();
 loadYouTube();
+loadTikTok();
 </script>
 </body>
 </html>
