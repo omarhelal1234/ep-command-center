@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everything Psych · TikTok authorization</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         max-width: 640px; margin: 4em auto; padding: 0 1.5em; line-height: 1.6; }
+  h1 { font-size: 1.4rem; }
+  .code-box { display: flex; gap: .5em; margin: 1em 0; }
+  code, input { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  input { flex: 1; padding: .7em .8em; font-size: 1rem; border: 1px solid #8884;
+          border-radius: 8px; background: #8881; }
+  button { padding: .7em 1.1em; font-size: 1rem; border: 0; border-radius: 8px;
+           background: #fe2c55; color: #fff; cursor: pointer; }
+  button:active { transform: translateY(1px); }
+  .ok { color: #18a058; } .err { color: #fe2c55; }
+  .muted { opacity: .7; font-size: .9rem; }
+  pre { background: #8881; padding: .8em 1em; border-radius: 8px; overflow:auto; }
+</style>
+</head>
+<body>
+  <h1>Everything Psych · TikTok</h1>
+  <div id="content"></div>
+  <p class="muted">This page only displays the authorization code TikTok sent back.
+  No data is stored or transmitted anywhere.</p>
+
+<script>
+  // Read the authorization code TikTok appended to this callback URL.
+  var p = new URLSearchParams(location.search);
+  var code = p.get("code");
+  var state = p.get("state");
+  var error = p.get("error");
+  var errDesc = p.get("error_description");
+  var el = document.getElementById("content");
+
+  function esc(s){ return (s||"").replace(/[<>&"]/g, function(c){
+    return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+
+  if (error) {
+    el.innerHTML =
+      '<p class="err"><strong>Authorization failed:</strong> ' + esc(error) +
+      (errDesc ? ' — ' + esc(errDesc) : '') + '</p>' +
+      '<p>Close this tab, re-run <code>python3 tiktok_auth.py</code>, and try again.</p>';
+  } else if (code) {
+    el.innerHTML =
+      '<p class="ok"><strong>Authorized.</strong> Copy this code and paste it into your terminal:</p>' +
+      '<div class="code-box">' +
+        '<input id="c" readonly value="' + esc(code) + '">' +
+        '<button id="copy">Copy</button>' +
+      '</div>' +
+      '<p>Then run, in the <code>Faceless youtube</code> folder:</p>' +
+      '<pre>python3 tiktok_auth.py --code ' + esc(code) +
+        (state ? ' --state ' + esc(state) : '') + '</pre>' +
+      '<p class="muted">You can then close this tab.</p>';
+    document.getElementById("copy").onclick = function(){
+      var i = document.getElementById("c"); i.select();
+      navigator.clipboard.writeText(i.value);
+      this.textContent = "Copied";
+    };
+  } else {
+    el.innerHTML =
+      '<p>No authorization code in the URL.</p>' +
+      '<p class="muted">Start from <code>python3 tiktok_auth.py</code> (step 1), ' +
+      'open the printed link, and approve the scopes — TikTok will redirect you back here with a code.</p>';
+  }
+</script>
+</body>
+</html>
