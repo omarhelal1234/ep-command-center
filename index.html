@@ -216,6 +216,7 @@ const TARGET_PER_WEEK = 7;
 const STAGES = ["idea","scripted","assets","scheduled","published"];
 const STAGE_LABEL = {idea:"Idea",scripted:"Scripted",assets:"Assets",scheduled:"Scheduled",published:"Published"};
 
+const TIKTOK_RESYNC_URL = SUPABASE_URL + "/functions/v1/tiktok-resync";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ytKey  = () => localStorage.getItem("ep_yt_key") || "";
 const chanId = () => localStorage.getItem("ep_channel") || DEFAULT_CHANNEL;
@@ -394,7 +395,7 @@ $("#settingsBtn").onclick=()=>{$("#ytKeyInput").value=ytKey();$("#chanInput").va
 $("#closeSettings").onclick=()=>$("#settingsModal").classList.remove("show");
 $("#saveSettings").onclick=()=>{localStorage.setItem("ep_yt_key",$("#ytKeyInput").value.trim());
   localStorage.setItem("ep_channel",$("#chanInput").value.trim()||DEFAULT_CHANNEL);location.reload();};
-$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();loadTikTok();};
+$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();resyncTikTok();};
 $("#qAdd").onclick=()=>addTopic($("#qTopic").value.trim(),$("#qAngle").value.trim(),$("#qDate").value);
 $("#planTomorrow").onclick=()=>{const d=new Date();d.setDate(d.getDate()+1);
   addTopic("[ planned — fill in topic ]","",d.toISOString().slice(0,10));};
@@ -418,6 +419,16 @@ async function loadTikTok(){
       $("#ttVideoWrap").innerHTML=`<table><thead><tr><th>Video</th><th class=num>Views</th><th class=num>Likes</th><th class=num>Comments</th><th class=num>Shares</th></tr></thead><tbody>${rows}</tbody></table>`;
     }else{$("#ttVideoWrap").innerHTML='<div class="muted">No videos synced yet.</div>';}
   }catch(e){$("#ttVideoWrap").innerHTML='<div class="muted">TikTok load error: '+esc(e.message)+'</div>';}
+}
+async function resyncTikTok(){
+  const u=$("#ttUpdated"); if(u)u.textContent="Resyncing from TikTok…";
+  try{
+    const r=await fetch(TIKTOK_RESYNC_URL,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"}});
+    const j=await r.json();
+    if(!j.ok)throw new Error(j.error||"resync failed");
+    toast("TikTok stats resynced ✓");
+  }catch(e){toast("TikTok resync failed: "+e.message);}
+  await loadTikTok();
 }
 
 /* ---------- INIT ---------- */
