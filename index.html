@@ -238,6 +238,7 @@ async function loadYouTube(){
     $("#stSubs").textContent=fmt(st.subscriberCount);
     $("#stViews").textContent=fmt(st.viewCount);
     $("#stVideos").textContent=fmt(st.videoCount);
+    const chViews=+(st.viewCount||0);
     $("#channelSub").innerHTML=esc(c.snippet.title)+" · <a target=_blank href='https://youtube.com/channel/"+chanId()+"'>open on YouTube ↗</a>";
     const uploads=c.contentDetails.relatedPlaylists.uploads;
     const pl=await yt("playlistItems",{part:"contentDetails",playlistId:uploads,maxResults:50});
@@ -249,6 +250,8 @@ async function loadYouTube(){
       views:+(v.statistics.viewCount||0),likes:+(v.statistics.likeCount||0),
       comments:+(v.statistics.commentCount||0),dur:isoDur(v.contentDetails.duration)}))
       .sort((a,b)=>new Date(b.published)-new Date(a.published));
+    const sumViews=VIDEOS.reduce((t,v)=>t+v.views,0);
+    $("#stViews").textContent=fmt(Math.max(chViews,sumViews));
     renderVideos(VIDEOS); renderNext(VIDEOS); renderCadence(VIDEOS); renderPerformers(VIDEOS); fillChecklistDropdown(VIDEOS);
   }catch(e){toast("YouTube error: "+e.message);$("#keyBanner").style.display="block";
     $("#keyBanner").innerHTML="YouTube API error: <b>"+esc(e.message)+"</b> — check the key in ⚙ Settings.";}
