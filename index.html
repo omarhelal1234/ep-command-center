@@ -114,15 +114,24 @@
     </div>
   </div>
 
+  <!-- APPROVALS -->
+  <div class="panel" id="approvalsPanel" style="margin-bottom:16px;display:none;border-color:#5b441e;background:#1e1809">
+    <h2 style="color:#ffd479">⏳ Awaiting your approval</h2>
+    <div id="approvalsList"></div>
+  </div>
+
   <!-- REMOTE RUN CONTROLS -->
   <div class="panel" id="runPanel" style="margin-bottom:16px">
-    <h2>Remote run controls <span class="muted" id="runHint" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+    <h2>Remote run controls
+      <span class="pill" id="relayPill" style="margin-left:6px;text-transform:none;letter-spacing:0;font-weight:600">relay …</span>
+      <span class="muted" id="runHint" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0"></span>
+    </h2>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-      <button class="primary" id="runAuto">▶︎ Run full video + Short</button>
-      <button class="primary" id="runShorts" style="background:linear-gradient(135deg,var(--accent2),#0787a0)">▶︎ Run micro-short</button>
+      <button class="primary" id="runAuto" data-base="▶︎ Run full video + Short">▶︎ Run full video + Short</button>
+      <button class="primary" id="runShorts" data-base="▶︎ Run micro-short" style="background:linear-gradient(135deg,var(--accent2),#0787a0)">▶︎ Run micro-short</button>
     </div>
     <div id="runLog" style="margin-top:14px"><div class="loading">Loading run history…</div></div>
-    <div class="muted" style="font-size:12px;margin-top:10px">Queues a job the producer agent picks up within a few minutes — fire it from any device. Each run uses API credits and runs on top of the schedule. Set your trigger token in <b>⚙ Settings</b> first; requests without it are ignored.</div>
+    <div class="muted" style="font-size:12px;margin-top:10px">Queues a job the producer agent picks up within a few minutes — fire it from any device. Each run uses API credits. The agent produces the video, then <b>waits for your approval here before publishing</b>. Set your trigger token in <b>⚙ Settings</b> first; requests without it are ignored.</div>
   </div>
 
   <!-- PLAN NEXT VIDEO -->
@@ -449,47 +458,104 @@ async function resyncTikTok(){
   await loadTikTok();
 }
 
-/* ---------- REMOTE RUN TRIGGERS ---------- */
+/* ---------- REMOTE RUN TRIGGERS + LIVE STATUS + APPROVALS ---------- */
 const TASK_LABEL = {autopublish:"full video + Short", microshorts:"micro-short"};
-const RUN_PILL = {pending:"warn",running:"warn",done:"good",error:"bad",rejected:"bad"};
+const RUN_PILL = {pending:"warn",running:"warn",awaiting_approval:"warn",done:"good",error:"bad",rejected:"bad"};
+const ACTIVE = ["pending","running","awaiting_approval"];
 const runCooldown = {autopublish:0, microshorts:0};
+
 async function queueRun(task){
   const label=TASK_LABEL[task];
   if(!runToken()){toast("Set your trigger token in ⚙ Settings first");$("#settingsBtn").click();return;}
   if(Date.now()<runCooldown[task]){toast("Just queued that — give it a moment");return;}
-  if(!confirm("Queue a "+label+" production run now?\n\nThis uses API credits and runs on top of the normal schedule. The producer agent picks it up within a few minutes."))return;
-  const btn=task==="autopublish"?$("#runAuto"):$("#runShorts");
-  btn.disabled=true;runCooldown[task]=Date.now()+60000;
+  if(!confirm("Queue a "+label+" production run now?\n\nThe agent produces it, then waits for your approval here before publishing. Uses API credits."))return;
+  runCooldown[task]=Date.now()+60000;
   const {error}=await sb.from("ep_run_requests").insert({task,token:runToken(),source:"github-pages",status:"pending"});
-  if(error){toast("Queue failed: "+error.message);btn.disabled=false;runCooldown[task]=0;return;}
+  if(error){toast("Queue failed: "+error.message);runCooldown[task]=0;return;}
   toast("Queued ✓ — producer agent will pick it up shortly");
-  loadRuns();
-  setTimeout(()=>{btn.disabled=false;},60000);
+  pollLive();
 }
+
+function fmtAgo(ts){const s=Math.max(0,(Date.now()-new Date(ts))/1000);
+  if(s<90)return Math.round(s)+"s ago"; if(s<5400)return Math.round(s/60)+"m ago";
+  if(s<172800)return Math.round(s/3600)+"h ago"; return Math.round(s/86400)+"d ago";}
+
+async function loadRelay(){
+  const {data}=await sb.from("ep_task_status").select("last_seen").eq("task_id","watcher").maybeSingle();
+  const p=$("#relayPill");
+  if(!data||!data.last_seen){p.className="pill bad";p.textContent="relay offline";return;}
+  const mins=(Date.now()-new Date(data.last_seen))/60000;
+  if(mins<12){p.className="pill good";p.textContent="relay active · "+fmtAgo(data.last_seen);}
+  else{p.className="pill warn";p.textContent="relay quiet · "+fmtAgo(data.last_seen);}
+}
+
+function setButtons(runs){
+  [["autopublish","#runAuto"],["microshorts","#runShorts"]].forEach(([t,sel])=>{
+    const b=$(sel),base=b.dataset.base;
+    const act=runs.find(r=>r.task===t&&ACTIVE.includes(r.status));
+    if(act){b.disabled=true;
+      b.textContent = act.status==="awaiting_approval" ? "⏳ awaiting approval" : "● "+(act.phase||act.status)+"…";
+    } else { b.disabled=Date.now()<runCooldown[t]; b.textContent=base; }
+  });
+}
+
 async function loadRuns(){
   const el=$("#runLog");
   const {data,error}=await sb.from("ep_run_requests").select("*").order("requested_at",{ascending:false}).limit(6);
   if(error){el.innerHTML="<div class='muted' style='font-size:12px'>Couldn't load run history: "+esc(error.message)+"</div>";return;}
+  setButtons(data||[]);
   if(!data||!data.length){el.innerHTML="<div class='muted' style='font-size:12px'>No runs queued yet — hit a button above to launch one.</div>";$("#runHint").textContent="";return;}
-  el.innerHTML="<table><thead><tr><th>Requested</th><th>Job</th><th>Status</th><th>Result</th></tr></thead><tbody>"+
+  el.innerHTML="<table><thead><tr><th>Requested</th><th>Job</th><th>Status</th><th>Phase / result</th></tr></thead><tbody>"+
     data.map(r=>{const pill=RUN_PILL[r.status]||"";
       const when=new Date(r.requested_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      const done=["done","rejected","error"].includes(r.status);
+      const note=done?(r.result?esc(r.result):"—"):(r.phase?esc(r.phase):"—");
       return "<tr><td style='white-space:nowrap'>"+when+"</td><td>"+(TASK_LABEL[r.task]||esc(r.task))+"</td>"+
-        "<td><span class='pill "+pill+"'>"+esc(r.status)+"</span></td>"+
-        "<td class='muted' style='max-width:300px;font-size:12px'>"+(r.result?esc(r.result).slice(0,180):"—")+"</td></tr>";}).join("")+
+        "<td><span class='pill "+pill+"'>"+esc(r.status.replace('_',' '))+"</span></td>"+
+        "<td class='muted' style='max-width:320px;font-size:12px'>"+note.slice(0,200)+"</td></tr>";}).join("")+
     "</tbody></table>";
-  const active=data.find(r=>r.status==="running")||data.find(r=>r.status==="pending");
-  $("#runHint").textContent=active?("· latest "+TASK_LABEL[active.task]+" is "+active.status):"";
+  const active=data.find(r=>ACTIVE.includes(r.status));
+  $("#runHint").textContent=active?("· "+TASK_LABEL[active.task]+": "+(active.phase||active.status).replace('_',' ')):"";
 }
+
+async function loadApprovals(){
+  const panel=$("#approvalsPanel"),list=$("#approvalsList");
+  const {data,error}=await sb.from("ep_approvals").select("*").eq("status","pending").order("created_at",{ascending:false});
+  if(error||!data||!data.length){panel.style.display="none";return;}
+  const canDecide=!!runToken();
+  list.innerHTML=data.map(a=>{const risk=a.kind==="publish_with_risk";
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--panel)">
+      <div style="font-weight:600">${risk?"⚠️ ":""}${esc(a.title||("Publish "+(TASK_LABEL[a.task]||a.task)))}</div>
+      <div class="muted" style="font-size:12px;margin:6px 0 10px;white-space:pre-wrap">${esc(a.detail||"")}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="primary sm" data-ok="${a.id}" ${canDecide?"":"disabled"}>✓ Approve &amp; publish</button>
+        <button class="sm" data-no="${a.id}" ${canDecide?"":"disabled"} style="border-color:#5b1e26;color:var(--bad)">✕ Reject</button>
+        ${canDecide?"":"<span class='muted' style='font-size:12px;align-self:center'>Set your token in ⚙ Settings to decide</span>"}
+      </div></div>`;}).join("");
+  panel.style.display="block";
+  list.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>decide(b.dataset.ok,"approved"));
+  list.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,"rejected"));
+}
+async function decide(id,decision){
+  if(decision==="rejected"&&!confirm("Reject this? The produced video will NOT be published."))return;
+  const {data,error}=await sb.from("ep_approvals").update({status:decision,decided_by:"command-center",decided_at:new Date().toISOString()})
+    .eq("id",id).eq("token",runToken()).select();
+  if(error){toast("Failed: "+error.message);return;}
+  if(!data||!data.length){toast("Token mismatch — check ⚙ Settings");return;}
+  toast(decision==="approved"?"Approved ✓ — publishing shortly":"Rejected");
+  pollLive();
+}
+
+function pollLive(){loadRuns();loadApprovals();loadRelay();}
 $("#runAuto").onclick=()=>queueRun("autopublish");
 $("#runShorts").onclick=()=>queueRun("microshorts");
-setInterval(loadRuns,20000); // live status while the page is open
+setInterval(pollLive,8000); // live status, approvals & relay heartbeat
 
 /* ---------- INIT ---------- */
 loadQueue();
 loadYouTube();
 loadTikTok();
-loadRuns();
+pollLive();
 </script>
 </body>
 </html>
