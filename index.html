@@ -114,6 +114,17 @@
     </div>
   </div>
 
+  <!-- REMOTE RUN CONTROLS -->
+  <div class="panel" id="runPanel" style="margin-bottom:16px">
+    <h2>Remote run controls <span class="muted" id="runHint" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0"></span></h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <button class="primary" id="runAuto">▶︎ Run full video + Short</button>
+      <button class="primary" id="runShorts" style="background:linear-gradient(135deg,var(--accent2),#0787a0)">▶︎ Run micro-short</button>
+    </div>
+    <div id="runLog" style="margin-top:14px"><div class="loading">Loading run history…</div></div>
+    <div class="muted" style="font-size:12px;margin-top:10px">Queues a job the producer agent picks up within a few minutes — fire it from any device. Each run uses API credits and runs on top of the schedule. Set your trigger token in <b>⚙ Settings</b> first; requests without it are ignored.</div>
+  </div>
+
   <!-- PLAN NEXT VIDEO -->
   <div class="panel" style="margin-bottom:16px">
     <h2>Plan the next video</h2>
@@ -196,6 +207,11 @@
       <label class="muted" style="font-size:12px">Channel ID</label>
       <input id="chanInput" />
     </div>
+    <div class="field">
+      <label class="muted" style="font-size:12px">Remote run trigger token</label>
+      <input id="tokInput" placeholder="EP-…" />
+      <div class="muted" style="font-size:12px;margin-top:6px">Must match <code>RUN_TRIGGER_TOKEN</code> in creds.txt. Stored only in this browser — it gates who can launch paid production runs from the buttons above.</div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="ghost" id="closeSettings">Cancel</button>
       <button class="primary" id="saveSettings">Save & reload</button>
@@ -220,6 +236,7 @@ const TIKTOK_RESYNC_URL = SUPABASE_URL + "/functions/v1/tiktok-resync";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const ytKey  = () => localStorage.getItem("ep_yt_key") || "";
 const chanId = () => localStorage.getItem("ep_channel") || DEFAULT_CHANNEL;
+const runToken = () => localStorage.getItem("ep_run_token") || "";
 let VIDEOS = []; // cached video objects
 
 /* ---------- helpers ---------- */
@@ -391,11 +408,12 @@ async function loadChecklist(vid,title){
 }
 
 /* ---------- SETTINGS / EVENTS ---------- */
-$("#settingsBtn").onclick=()=>{$("#ytKeyInput").value=ytKey();$("#chanInput").value=chanId();$("#settingsModal").classList.add("show");};
+$("#settingsBtn").onclick=()=>{$("#ytKeyInput").value=ytKey();$("#chanInput").value=chanId();$("#tokInput").value=runToken();$("#settingsModal").classList.add("show");};
 $("#closeSettings").onclick=()=>$("#settingsModal").classList.remove("show");
 $("#saveSettings").onclick=()=>{localStorage.setItem("ep_yt_key",$("#ytKeyInput").value.trim());
-  localStorage.setItem("ep_channel",$("#chanInput").value.trim()||DEFAULT_CHANNEL);location.reload();};
-$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();resyncTikTok();};
+  localStorage.setItem("ep_channel",$("#chanInput").value.trim()||DEFAULT_CHANNEL);
+  localStorage.setItem("ep_run_token",$("#tokInput").value.trim());location.reload();};
+$("#refreshBtn").onclick=()=>{loadYouTube();loadQueue();resyncTikTok();loadRuns();};
 $("#qAdd").onclick=()=>addTopic($("#qTopic").value.trim(),$("#qAngle").value.trim(),$("#qDate").value);
 $("#planTomorrow").onclick=()=>{const d=new Date();d.setDate(d.getDate()+1);
   addTopic("[ planned — fill in topic ]","",d.toISOString().slice(0,10));};
@@ -431,10 +449,47 @@ async function resyncTikTok(){
   await loadTikTok();
 }
 
+/* ---------- REMOTE RUN TRIGGERS ---------- */
+const TASK_LABEL = {autopublish:"full video + Short", microshorts:"micro-short"};
+const RUN_PILL = {pending:"warn",running:"warn",done:"good",error:"bad",rejected:"bad"};
+const runCooldown = {autopublish:0, microshorts:0};
+async function queueRun(task){
+  const label=TASK_LABEL[task];
+  if(!runToken()){toast("Set your trigger token in ⚙ Settings first");$("#settingsBtn").click();return;}
+  if(Date.now()<runCooldown[task]){toast("Just queued that — give it a moment");return;}
+  if(!confirm("Queue a "+label+" production run now?\n\nThis uses API credits and runs on top of the normal schedule. The producer agent picks it up within a few minutes."))return;
+  const btn=task==="autopublish"?$("#runAuto"):$("#runShorts");
+  btn.disabled=true;runCooldown[task]=Date.now()+60000;
+  const {error}=await sb.from("ep_run_requests").insert({task,token:runToken(),source:"github-pages",status:"pending"});
+  if(error){toast("Queue failed: "+error.message);btn.disabled=false;runCooldown[task]=0;return;}
+  toast("Queued ✓ — producer agent will pick it up shortly");
+  loadRuns();
+  setTimeout(()=>{btn.disabled=false;},60000);
+}
+async function loadRuns(){
+  const el=$("#runLog");
+  const {data,error}=await sb.from("ep_run_requests").select("*").order("requested_at",{ascending:false}).limit(6);
+  if(error){el.innerHTML="<div class='muted' style='font-size:12px'>Couldn't load run history: "+esc(error.message)+"</div>";return;}
+  if(!data||!data.length){el.innerHTML="<div class='muted' style='font-size:12px'>No runs queued yet — hit a button above to launch one.</div>";$("#runHint").textContent="";return;}
+  el.innerHTML="<table><thead><tr><th>Requested</th><th>Job</th><th>Status</th><th>Result</th></tr></thead><tbody>"+
+    data.map(r=>{const pill=RUN_PILL[r.status]||"";
+      const when=new Date(r.requested_at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      return "<tr><td style='white-space:nowrap'>"+when+"</td><td>"+(TASK_LABEL[r.task]||esc(r.task))+"</td>"+
+        "<td><span class='pill "+pill+"'>"+esc(r.status)+"</span></td>"+
+        "<td class='muted' style='max-width:300px;font-size:12px'>"+(r.result?esc(r.result).slice(0,180):"—")+"</td></tr>";}).join("")+
+    "</tbody></table>";
+  const active=data.find(r=>r.status==="running")||data.find(r=>r.status==="pending");
+  $("#runHint").textContent=active?("· latest "+TASK_LABEL[active.task]+" is "+active.status):"";
+}
+$("#runAuto").onclick=()=>queueRun("autopublish");
+$("#runShorts").onclick=()=>queueRun("microshorts");
+setInterval(loadRuns,20000); // live status while the page is open
+
 /* ---------- INIT ---------- */
 loadQueue();
 loadYouTube();
 loadTikTok();
+loadRuns();
 </script>
 </body>
 </html>
