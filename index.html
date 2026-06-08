@@ -129,6 +129,7 @@
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <button class="primary" id="runAuto" data-base="▶︎ Run full video + Short">▶︎ Run full video + Short</button>
       <button class="primary" id="runShorts" data-base="▶︎ Run micro-short" style="background:linear-gradient(135deg,var(--accent2),#0787a0)">▶︎ Run micro-short</button>
+      <button class="primary" id="runHost" data-base="▶︎ Run Omar host TikTok" style="background:linear-gradient(135deg,#c2703f,#7a3a1c)">▶︎ Run Omar host TikTok</button>
     </div>
     <div id="runLog" style="margin-top:14px"><div class="loading">Loading run history…</div></div>
     <div class="muted" style="font-size:12px;margin-top:10px">Queues a job the producer agent picks up within a few minutes — fire it from any device. Each run uses API credits. The agent produces the video, then <b>waits for your approval here before publishing</b>. Set your trigger token in <b>⚙ Settings</b> first; requests without it are ignored.</div>
@@ -459,10 +460,10 @@ async function resyncTikTok(){
 }
 
 /* ---------- REMOTE RUN TRIGGERS + LIVE STATUS + APPROVALS ---------- */
-const TASK_LABEL = {autopublish:"full video + Short", microshorts:"micro-short"};
+const TASK_LABEL = {autopublish:"full video + Short", microshorts:"micro-short", host_tiktok:"Omar host TikTok"};
 const RUN_PILL = {pending:"warn",running:"warn",awaiting_approval:"warn",done:"good",error:"bad",rejected:"bad"};
 const ACTIVE = ["pending","running","awaiting_approval"];
-const runCooldown = {autopublish:0, microshorts:0};
+const runCooldown = {autopublish:0, microshorts:0, host_tiktok:0};
 
 async function queueRun(task){
   const label=TASK_LABEL[task];
@@ -490,7 +491,7 @@ async function loadRelay(){
 }
 
 function setButtons(runs){
-  [["autopublish","#runAuto"],["microshorts","#runShorts"]].forEach(([t,sel])=>{
+  [["autopublish","#runAuto"],["microshorts","#runShorts"],["host_tiktok","#runHost"]].forEach(([t,sel])=>{
     const b=$(sel),base=b.dataset.base;
     const act=runs.find(r=>r.task===t&&ACTIVE.includes(r.status));
     if(act){b.disabled=true;
@@ -549,6 +550,7 @@ async function decide(id,decision){
 function pollLive(){loadRuns();loadApprovals();loadRelay();}
 $("#runAuto").onclick=()=>queueRun("autopublish");
 $("#runShorts").onclick=()=>queueRun("microshorts");
+$("#runHost").onclick=()=>queueRun("host_tiktok");
 setInterval(pollLive,8000); // live status, approvals & relay heartbeat
 
 /* ---------- INIT ---------- */
